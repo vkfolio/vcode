@@ -59,6 +59,7 @@
       "workbench.layoutControl.enabled": false,
       "workbench.startupEditor": "none",
       "workbench.panel.defaultLocation": "right",
+      "workbench.secondarySideBar.defaultVisibility": "hidden",
       "workbench.tree.indent": 14,
       "workbench.editor.tabActionCloseVisibility": false,
       "editor.minimap.enabled": false,
@@ -67,7 +68,8 @@
       "editor.cursorSmoothCaretAnimation": "on",
       "editor.fontLigatures": true,
       "breadcrumbs.enabled": false,
-      "chat.titleBar.signIn.enabled": false
+      "chat.titleBar.signIn.enabled": false,
+      "chat.titleBar.openInAgentsWindow.enabled": false
     }
   }
 }

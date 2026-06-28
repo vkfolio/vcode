@@ -100,25 +100,16 @@ class VkcodeDockToggles extends Disposable implements IWorkbenchContribution {
 		{
 			part: Parts.PANEL_PART,
 			id: 'vkcode.status.togglePanel',
-			name: localize('vkcode.dock.panel', "Panel"),
+			name: localize('vkcode.dock.console', "Console"),
 			command: 'workbench.action.togglePanel',
-			onIcon: 'layout-panel',
-			offIcon: 'layout-panel-off',
+			onIcon: 'terminal',
+			offIcon: 'terminal',
 			alignment: StatusbarAlignment.RIGHT,
 			priority: 50,
-			label: localize('vkcode.dock.panel.toggle', "Toggle Panel")
-		},
-		{
-			part: Parts.AUXILIARYBAR_PART,
-			id: 'vkcode.status.toggleAuxiliaryBar',
-			name: localize('vkcode.dock.auxiliary', "Secondary Side Bar"),
-			command: 'workbench.action.toggleAuxiliaryBar',
-			onIcon: 'layout-sidebar-right',
-			offIcon: 'layout-sidebar-right-off',
-			alignment: StatusbarAlignment.RIGHT,
-			priority: 49,
-			label: localize('vkcode.dock.auxiliary.toggle', "Toggle Secondary Side Bar")
+			label: localize('vkcode.dock.console.toggle', "Toggle Console")
 		}
+		// vkcode: no Secondary Side Bar toggle — that dock only hosts the (hidden) chat view, so the
+		// toggle would just open AI chat. The right dock is the Console (panel) above.
 	];
 
 	private readonly accessors = this._register(new DisposableMap<string, IStatusbarEntryAccessor>());

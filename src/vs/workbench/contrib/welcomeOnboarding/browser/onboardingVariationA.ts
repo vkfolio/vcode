@@ -10,7 +10,6 @@ import { isCancellationError } from '../../../../base/common/errors.js';
 import { StopWatch } from '../../../../base/common/stopwatch.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isWindows, isMacintosh, isLinux } from '../../../../base/common/platform.js';
-import { assertDefined } from '../../../../base/common/types.js';
 import { FileAccess } from '../../../../base/common/network.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
@@ -77,8 +76,10 @@ type OnboardingActionEvent = {
 
 type EnterpriseSignInUiState = 'options' | 'instance' | 'progress';
 
-assertDefined(product.defaultChatAgent, 'Onboarding requires a default chat agent product configuration.');
-const defaultChat = product.defaultChatAgent;
+// vkcode: there is no default chat agent (Copilot was removed), so the sign-in onboarding is
+// disabled. Keep a typed fallback so the module still loads; `show()` returns early before any of
+// these values are read.
+const defaultChat = product.defaultChatAgent ?? ({} as NonNullable<typeof product.defaultChatAgent>);
 
 /**
  * Variation A — Classic Wizard Modal
@@ -167,6 +168,10 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 	}
 
 	show(): void {
+		// vkcode: no default chat agent → the sign-in onboarding wizard is intentionally disabled.
+		if (!product.defaultChatAgent) {
+			return;
+		}
 		if (this.overlay) {
 			return;
 		}

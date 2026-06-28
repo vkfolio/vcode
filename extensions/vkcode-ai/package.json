@@ -1,0 +1,98 @@
+{
+	"name": "vkcode-ai",
+	"displayName": "vkcode AI",
+	"description": "On-device AI for vkcode: inline chat, inline suggestions and commit messages powered by a local Qwen model. No account, no sign-in.",
+	"version": "0.0.1",
+	"publisher": "vkcode",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.126.0"
+	},
+	"enabledApiProposals": [
+		"chatProvider",
+		"defaultChatParticipant",
+		"chatParticipantAdditions"
+	],
+	"categories": [
+		"AI"
+	],
+	"main": "./out/extension",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"languageModelChatProviders": [
+			{
+				"vendor": "qwen",
+				"displayName": "Qwen (local)"
+			}
+		],
+		"chatParticipants": [
+			{
+				"id": "vkcode.ai",
+				"name": "vkcode",
+				"fullName": "vkcode",
+				"description": "Local AI powered by Qwen",
+				"isDefault": true,
+				"locations": [
+					"editor",
+					"terminal",
+					"notebook"
+				]
+			}
+		],
+		"commands": [
+			{
+				"command": "vkcode.ai.toggle",
+				"title": "Toggle AI",
+				"category": "vkcode"
+			},
+			{
+				"command": "vkcode.git.generateCommitMessage",
+				"title": "Generate Commit Message (Local AI)",
+				"category": "vkcode",
+				"icon": "$(sparkle)"
+			}
+		],
+		"configuration": {
+			"title": "vkcode AI",
+			"properties": {
+				"vkcode.ai.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Master switch for vkcode's on-device AI. When off, inline chat, inline suggestions and commit-message generation do not use the model."
+				},
+				"vkcode.ai.model": {
+					"type": "string",
+					"default": "d:/osp/vkcode/models/Qwen3.5-4B-Q4_K_M.gguf",
+					"description": "Absolute path to the local GGUF model file used by vkcode AI."
+				},
+				"vkcode.ai.contextSize": {
+					"type": "number",
+					"default": 4096,
+					"description": "Context window (in tokens) used when loading the local model."
+				},
+				"vkcode.inlineSuggest.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Provide inline (ghost text) code suggestions from the local model. Also requires editor.inlineSuggest.enabled."
+				},
+				"vkcode.commitMessage.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show the local 'Generate Commit Message' action in the Source Control input."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"compile": "gulp compile-extension:vkcode-ai",
+		"watch": "gulp watch-extension:vkcode-ai"
+	},
+	"dependencies": {
+		"node-llama-cpp": "^3.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	}
+}

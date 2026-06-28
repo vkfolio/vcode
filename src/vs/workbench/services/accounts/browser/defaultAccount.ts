@@ -88,29 +88,31 @@ interface IMcpRegistryResponse {
 	readonly mcp_registries: ReadonlyArray<IMcpRegistryProvider>;
 }
 
-function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent): IDefaultAccountConfig {
+// vkcode: tolerate a missing default chat agent (Copilot removed). The account/sign-in subsystem is
+// then inert — it returns an empty config so the service constructs without dereferencing undefined.
+function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent | undefined): IDefaultAccountConfig {
 	return {
-		preferredExtensions: [
+		preferredExtensions: defaultChatAgent ? [
 			defaultChatAgent.chatExtensionId,
 			defaultChatAgent.extensionId,
-		],
+		] : [],
 		authenticationProvider: {
 			default: {
-				id: defaultChatAgent.provider.default.id,
-				name: defaultChatAgent.provider.default.name,
+				id: defaultChatAgent?.provider.default.id ?? '',
+				name: defaultChatAgent?.provider.default.name ?? '',
 			},
 			enterprise: {
-				id: defaultChatAgent.provider.enterprise.id,
-				name: defaultChatAgent.provider.enterprise.name,
+				id: defaultChatAgent?.provider.enterprise.id ?? '',
+				name: defaultChatAgent?.provider.enterprise.name ?? '',
 			},
-			enterpriseProviderConfig: `${defaultChatAgent.completionsAdvancedSetting}.authProvider`,
-			enterpriseProviderUriSetting: defaultChatAgent.providerUriSetting,
-			scopes: defaultChatAgent.providerScopes,
+			enterpriseProviderConfig: `${defaultChatAgent?.completionsAdvancedSetting ?? 'vkcode.ai'}.authProvider`,
+			enterpriseProviderUriSetting: defaultChatAgent?.providerUriSetting ?? '',
+			scopes: defaultChatAgent?.providerScopes ?? [],
 		},
-		entitlementUrl: defaultChatAgent.entitlementUrl,
-		tokenEntitlementUrl: defaultChatAgent.tokenEntitlementUrl,
-		mcpRegistryDataUrl: defaultChatAgent.mcpRegistryDataUrl,
-		managedSettingsUrl: defaultChatAgent.managedSettingsUrl,
+		entitlementUrl: defaultChatAgent?.entitlementUrl ?? '',
+		tokenEntitlementUrl: defaultChatAgent?.tokenEntitlementUrl ?? '',
+		mcpRegistryDataUrl: defaultChatAgent?.mcpRegistryDataUrl ?? '',
+		managedSettingsUrl: defaultChatAgent?.managedSettingsUrl ?? '',
 	};
 }
 
@@ -145,6 +147,11 @@ export class DefaultAccountService extends Disposable implements IDefaultAccount
 	) {
 		super();
 		this.defaultAccountConfig = toDefaultAccountConfig(productService.defaultChatAgent);
+		// vkcode: with no default chat agent there is no account provider to set, so open the barrier
+		// up front — getDefaultAccount()/refresh()/signIn() then resolve to "no account" instead of hanging.
+		if (!productService.defaultChatAgent) {
+			this.initBarrier.open();
+		}
 	}
 
 	async getDefaultAccount(): Promise<IDefaultAccount | null> {
@@ -1175,6 +1182,10 @@ class DefaultAccountProviderContribution extends Disposable implements IWorkbenc
 		@IDefaultAccountService defaultAccountService: IDefaultAccountService,
 	) {
 		super();
+		// vkcode: no default chat agent → no Copilot account provider to register.
+		if (!productService.defaultChatAgent) {
+			return;
+		}
 		const defaultAccountProvider = this._register(instantiationService.createInstance(DefaultAccountProvider, toDefaultAccountConfig(productService.defaultChatAgent)));
 		defaultAccountService.setDefaultAccountProvider(defaultAccountProvider);
 	}

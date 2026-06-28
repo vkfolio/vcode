@@ -57,7 +57,7 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { safeIntl } from '../../../../base/common/date.js';
 import { IsCompactTitleBarContext, TitleBarVisibleContext } from '../../../common/contextkeys.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { VkcodeProjectControl, VkcodeBranchControl, VkcodeAccountControl } from './vkcodeTitleControls.js';
+import { VkcodeProjectControl, VkcodeBranchControl } from './vkcodeTitleControls.js';
 
 export interface ITitleVariable {
 	readonly name: string;
@@ -271,7 +271,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	protected menubar?: HTMLElement;
 	protected vkcodeProjectControl?: VkcodeProjectControl;
 	protected vkcodeBranchControl?: VkcodeBranchControl;
-	protected vkcodeAccountControl?: VkcodeAccountControl;
 	private lastLayoutDimensions: Dimension | undefined;
 
 	private actionToolBar!: WorkbenchToolBar;
@@ -539,12 +538,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 			this.actionToolBarElement = append(this.rightContent, $('div.action-toolbar-container'));
 			this.createActionToolBar();
 			this.createActionToolBarMenus();
-		}
-
-		// vkcode: Zed-style "Sign In ⌄" account/preferences control (main window, custom titlebar only)
-		if (!this.isAuxiliary && hasCustomTitlebar(this.configurationService, this.titleBarStyle)) {
-			this.vkcodeAccountControl = this._register(this.instantiationService.createInstance(VkcodeAccountControl));
-			append(this.rightContent, this.vkcodeAccountControl.element);
 		}
 
 		// Window Controls Container
