@@ -15,26 +15,39 @@ import { IPaneCompositePartService } from '../../../services/panecomposite/brows
 import { ViewContainerLocation } from '../../../common/views.js';
 
 const EXPLORER_VIEWLET_ID = 'workbench.view.explorer';
+const SCM_VIEWLET_ID = 'workbench.view.scm';
 const TOGGLE_EXPLORER_COMMAND = 'vkcode.toggleExplorer';
+const TOGGLE_SCM_COMMAND = 'vkcode.toggleSourceControl';
 
 /**
- * Zed-style "project panel" toggle: open and focus the Explorer; if the Explorer is already the
- * active side-bar view, hide the side bar. This also lets the user leave another view (e.g. the
- * Extensions view) by switching straight back to the Explorer.
+ * Zed-style side-bar view toggle: open and focus the given side-bar view; if that view is already
+ * the active one, hide the side bar instead. This also lets the user leave another view (e.g. the
+ * Extensions view) by switching straight to the target view.
  */
-CommandsRegistry.registerCommand(TOGGLE_EXPLORER_COMMAND, (accessor: ServicesAccessor) => {
-	const layoutService = accessor.get(IWorkbenchLayoutService);
-	const paneCompositeService = accessor.get(IPaneCompositePartService);
+function registerViewletToggle(commandId: string, viewletId: string): void {
+	CommandsRegistry.registerCommand(commandId, (accessor: ServicesAccessor) => {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const paneCompositeService = accessor.get(IPaneCompositePartService);
 
-	const sidebarVisible = layoutService.isVisible(Parts.SIDEBAR_PART, mainWindow);
-	const active = paneCompositeService.getActivePaneComposite(ViewContainerLocation.Sidebar);
+		const sidebarVisible = layoutService.isVisible(Parts.SIDEBAR_PART, mainWindow);
+		const active = paneCompositeService.getActivePaneComposite(ViewContainerLocation.Sidebar);
 
-	if (sidebarVisible && active?.getId() === EXPLORER_VIEWLET_ID) {
-		layoutService.setPartHidden(true, Parts.SIDEBAR_PART);
-	} else {
-		paneCompositeService.openPaneComposite(EXPLORER_VIEWLET_ID, ViewContainerLocation.Sidebar, true);
-	}
-});
+		if (sidebarVisible && active?.getId() === viewletId) {
+			layoutService.setPartHidden(true, Parts.SIDEBAR_PART);
+		} else {
+			paneCompositeService.openPaneComposite(viewletId, ViewContainerLocation.Sidebar, true);
+		}
+	});
+}
+
+registerViewletToggle(TOGGLE_EXPLORER_COMMAND, EXPLORER_VIEWLET_ID);
+registerViewletToggle(TOGGLE_SCM_COMMAND, SCM_VIEWLET_ID);
+
+/** "On" when the side bar is visible and showing the given view. */
+function isViewletActive(layoutService: IWorkbenchLayoutService, paneCompositeService: IPaneCompositePartService, viewletId: string): boolean {
+	return layoutService.isVisible(Parts.SIDEBAR_PART, mainWindow) &&
+		paneCompositeService.getActivePaneComposite(ViewContainerLocation.Sidebar)?.getId() === viewletId;
+}
 
 interface IDockToggleDescriptor {
 	readonly part: Parts;
@@ -70,9 +83,19 @@ class VkcodeDockToggles extends Disposable implements IWorkbenchContribution {
 			alignment: StatusbarAlignment.LEFT,
 			priority: 100,
 			label: localize('vkcode.dock.explorer.toggle', "Toggle Explorer"),
-			isOn: ({ layoutService, paneCompositeService }) =>
-				layoutService.isVisible(Parts.SIDEBAR_PART, mainWindow) &&
-				paneCompositeService.getActivePaneComposite(ViewContainerLocation.Sidebar)?.getId() === EXPLORER_VIEWLET_ID
+			isOn: ({ layoutService, paneCompositeService }) => isViewletActive(layoutService, paneCompositeService, EXPLORER_VIEWLET_ID)
+		},
+		{
+			part: Parts.SIDEBAR_PART,
+			id: 'vkcode.status.toggleSourceControl',
+			name: localize('vkcode.dock.scm', "Source Control"),
+			command: TOGGLE_SCM_COMMAND,
+			onIcon: 'source-control',
+			offIcon: 'source-control',
+			alignment: StatusbarAlignment.LEFT,
+			priority: 99,
+			label: localize('vkcode.dock.scm.toggle', "Toggle Source Control"),
+			isOn: ({ layoutService, paneCompositeService }) => isViewletActive(layoutService, paneCompositeService, SCM_VIEWLET_ID)
 		},
 		{
 			part: Parts.PANEL_PART,
