@@ -476,6 +476,20 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		// App Icon (Windows, Linux)
 		if ((isWindows || isLinux) && !hasNativeTitlebar(this.configurationService, this.titleBarStyle)) {
 			this.appIcon = prepend(this.leftContent, $('a.window-appicon'));
+
+			// vkcode: clicking the app mark opens the Zed-style application menu (discoverable
+			// even though the menu bar itself is hidden by default).
+			if (!this.isAuxiliary) {
+				this.appIcon.setAttribute('role', 'button');
+				this._register(addDisposableListener(this.appIcon, EventType.CLICK, e => {
+					EventHelper.stop(e, true);
+					this.contextMenuService.showContextMenu({
+						getAnchor: () => this.appIcon!,
+						menuId: MenuId.for('MenubarVkcodeMenu'),
+						contextKeyService: this.contextKeyService
+					});
+				}));
+			}
 		}
 
 		// Draggable region that we can manipulate for #52522
