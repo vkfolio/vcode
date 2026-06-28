@@ -13,6 +13,11 @@ import { getMarkdownExtensionContributions } from './markdownExtensions';
 import { githubSlugifier } from './slugify';
 
 export async function activate(context: vscode.ExtensionContext) {
+	// vkcode: open notebook images (markdown + output renderers) in a separate editor tab when the
+	// in-cell "view fullscreen" button is clicked. Registered first so it works even before the
+	// markdown language server finishes starting.
+	registerNotebookImageViewer(context);
+
 	const contributions = getMarkdownExtensionContributions(context);
 	context.subscriptions.push(contributions);
 
@@ -24,6 +29,51 @@ export async function activate(context: vscode.ExtensionContext) {
 	const client = await startServer(context, engine);
 	context.subscriptions.push(client);
 	activateShared(context, client, engine, logger, contributions);
+}
+
+/**
+ * vkcode: listens for "open image" messages posted by the notebook markdown and output renderers and
+ * shows the image in a dedicated editor tab (a webview panel, which is viewport-sized so it centers
+ * correctly — unlike an overlay inside the tall notebook output webview).
+ */
+function registerNotebookImageViewer(context: vscode.ExtensionContext): void {
+	const onMessage = (message: unknown) => {
+		if (message && typeof message === 'object' && (message as { type?: string }).type === 'vkcode-open-image') {
+			const src = (message as { src?: string }).src;
+			const title = (message as { title?: string }).title;
+			if (typeof src === 'string' && src.length > 0) {
+				openImagePanel(src, title);
+			}
+		}
+	};
+
+	// createRendererMessaging() only works for renderers this extension contributes, so we handle the
+	// markdown renderer here; the builtin output-image renderer is handled by notebook-renderers.
+	const messaging = vscode.notebooks.createRendererMessaging('vscode.markdown-it-renderer');
+	context.subscriptions.push(messaging.onDidReceiveMessage(e => onMessage(e.message)));
+}
+
+function openImagePanel(src: string, title?: string): void {
+	const panel = vscode.window.createWebviewPanel(
+		'vkcode.imageViewer',
+		title || vscode.l10n.t('Image'),
+		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
+		{ enableScripts: false, retainContextWhenHidden: false }
+	);
+	const escaped = src.replace(/"/g, '&quot;');
+	panel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http: vscode-resource: vscode-webview-resource:; style-src 'unsafe-inline';">
+	<style>
+		html, body { margin: 0; height: 100%; background: #1e1e1e; }
+		body { display: flex; align-items: center; justify-content: center; }
+		img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
+	</style>
+</head>
+<body><img src="${escaped}" alt=""></body>
+</html>`;
 }
 
 function startServer(context: vscode.ExtensionContext, parser: IMdParser): Promise<MdLanguageClient> {

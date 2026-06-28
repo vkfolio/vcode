@@ -28,7 +28,8 @@
     "onLanguage:skill",
     "onCommand:markdown.api.render",
     "onCommand:markdown.api.reloadPlugins",
-    "onWebviewPanel:markdown.preview"
+    "onWebviewPanel:markdown.preview",
+    "onRenderer:vscode.markdown-it-renderer"
   ],
   "capabilities": {
     "virtualWorkspaces": true,
@@ -46,6 +47,7 @@
         "id": "vscode.markdown-it-renderer",
         "displayName": "Markdown it renderer",
         "entrypoint": "./notebook-out/index.js",
+        "requiresMessaging": "optional",
         "mimeTypes": [
           "text/markdown",
           "text/latex",

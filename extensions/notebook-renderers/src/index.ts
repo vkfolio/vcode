@@ -15,7 +15,72 @@ function clearContainer(container: HTMLElement) {
 	}
 }
 
-function renderImage(outputInfo: OutputItem, element: HTMLElement): IDisposable {
+// vkcode: SVG used for the "view fullscreen" affordance on image-output cards.
+const VKCODE_EXPAND_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2 2h5v1.5H3.5V7H2V2zm12 0v5h-1.5V3.5H9V2h5zM2 9h1.5v3.5H7V14H2V9zm10.5 0H14v5H9v-1.5h3.5V9z"/></svg>';
+
+/**
+ * vkcode: opens an image in a fullscreen lightbox. Tries the real Fullscreen API first (true
+ * full-screen when the output webview allows it) and always falls back to an in-webview overlay
+ * that covers the notebook, so the control works regardless of sandbox permissions.
+ */
+function openImageLightbox(src: string, alt: string | undefined): void {
+	const overlay = document.createElement('div');
+	overlay.className = 'vkcode-img-lightbox';
+
+	const big = document.createElement('img');
+	big.src = src;
+	if (alt) {
+		big.alt = alt;
+	}
+	overlay.appendChild(big);
+
+	const close = document.createElement('button');
+	close.className = 'vkcode-lightbox-close';
+	close.title = 'Close (Esc)';
+	close.setAttribute('aria-label', 'Close');
+	close.textContent = '✕';
+	overlay.appendChild(close);
+
+	const cleanup = () => {
+		document.removeEventListener('keydown', onKey);
+		document.removeEventListener('fullscreenchange', onFullscreenChange);
+		if (document.fullscreenElement === overlay) {
+			document.exitFullscreen?.().catch(() => { /* ignore */ });
+		}
+		overlay.remove();
+	};
+	const onKey = (e: KeyboardEvent) => {
+		if (e.key === 'Escape') {
+			cleanup();
+		}
+	};
+	const onFullscreenChange = () => {
+		// If the user leaves fullscreen (e.g. via Esc), tear the overlay down too.
+		if (!document.fullscreenElement) {
+			cleanup();
+		}
+	};
+
+	overlay.addEventListener('click', cleanup);
+	close.addEventListener('click', cleanup);
+	document.addEventListener('keydown', onKey);
+	document.addEventListener('fullscreenchange', onFullscreenChange);
+
+	document.body.appendChild(overlay);
+	overlay.requestFullscreen?.().catch(() => { /* fall back to the in-webview overlay */ });
+}
+
+/** vkcode: reads a Blob as a base64 data URL so it can be posted to the extension host. */
+function blobToDataUrl(blob: Blob): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(blob);
+	});
+}
+
+function renderImage(outputInfo: OutputItem, element: HTMLElement, post: ((message: unknown) => void) | undefined): IDisposable {
 	const blob = new Blob([outputInfo.data() as Uint8Array<ArrayBuffer>], { type: outputInfo.mime });
 	const src = URL.createObjectURL(blob);
 	const disposable = {
@@ -24,17 +89,17 @@ function renderImage(outputInfo: OutputItem, element: HTMLElement): IDisposable 
 		}
 	};
 
-	if (element.firstChild) {
-		const display = element.firstChild as HTMLElement;
-		if (display.firstChild && display.firstChild.nodeName === 'IMG' && display.firstChild instanceof HTMLImageElement) {
-			display.firstChild.src = src;
-			return disposable;
-		}
+	const alt = getAltText(outputInfo);
+
+	// Re-render: an image element already exists inside the card — just swap its source.
+	const existing = element.querySelector('img');
+	if (existing instanceof HTMLImageElement) {
+		existing.src = src;
+		return disposable;
 	}
 
 	const image = document.createElement('img');
 	image.src = src;
-	const alt = getAltText(outputInfo);
 	if (alt) {
 		image.alt = alt;
 	}
@@ -43,9 +108,27 @@ function renderImage(outputInfo: OutputItem, element: HTMLElement): IDisposable 
 		outputId: outputInfo.id,
 		'preventDefaultContextMenuItems': true
 	}));
+
+	// vkcode: present image outputs as a card with a hover "open in editor" button.
+	const expand = document.createElement('button');
+	expand.className = 'vkcode-img-expand';
+	expand.title = 'Open image in editor';
+	expand.setAttribute('aria-label', 'Open image in editor');
+	expand.innerHTML = VKCODE_EXPAND_ICON;
+	expand.addEventListener('click', e => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (post) {
+			blobToDataUrl(blob).then(dataUrl => post({ type: 'vkcode-open-image', src: dataUrl, title: alt || undefined }), () => openImageLightbox(src, alt));
+		} else {
+			openImageLightbox(src, alt);
+		}
+	});
+
 	const display = document.createElement('div');
-	display.classList.add('display');
+	display.classList.add('display', 'vkcode-img-card');
 	display.appendChild(image);
+	display.appendChild(expand);
 	element.appendChild(display);
 
 	return disposable;
@@ -534,6 +617,97 @@ export const activate: ActivationFunction<void> = (ctx) => {
 	#container .error-output-header a {
 		padding-right: 12px;
 	}
+	/* vkcode: image outputs presented as cards with a hover "view fullscreen" button. */
+	.vkcode-img-card {
+		position: relative;
+		display: inline-block;
+		max-width: 100%;
+		margin: 6px 0;
+		padding: 6px;
+		border-radius: 10px;
+		background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+		border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, transparent));
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 6px 18px rgba(0, 0, 0, 0.10);
+		transition: box-shadow 0.15s ease, transform 0.15s ease;
+		line-height: 0;
+	}
+	.vkcode-img-card:hover {
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24), 0 12px 30px rgba(0, 0, 0, 0.16);
+	}
+	.vkcode-img-card > img {
+		display: block;
+		max-width: 100%;
+		max-height: 360px;
+		width: auto;
+		height: auto;
+		border-radius: 6px;
+		object-fit: contain;
+	}
+	.vkcode-img-expand {
+		position: absolute;
+		top: 12px;
+		right: 12px;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--vscode-widget-border, transparent);
+		border-radius: 6px;
+		background: var(--vscode-button-secondaryBackground, rgba(0, 0, 0, 0.6));
+		color: var(--vscode-button-secondaryForeground, #ffffff);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.15s ease, background 0.15s ease;
+	}
+	.vkcode-img-card:hover .vkcode-img-expand,
+	.vkcode-img-expand:focus-visible {
+		opacity: 1;
+	}
+	.vkcode-img-expand:hover {
+		background: var(--vscode-button-hoverBackground, rgba(0, 0, 0, 0.8));
+	}
+	/* vkcode: fullscreen lightbox for image outputs. */
+	.vkcode-img-lightbox {
+		position: fixed;
+		inset: 0;
+		z-index: 2147483647;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 24px;
+		box-sizing: border-box;
+		background: rgba(0, 0, 0, 0.86);
+		cursor: zoom-out;
+	}
+	.vkcode-img-lightbox img {
+		max-width: 96vw;
+		max-height: 94vh;
+		object-fit: contain;
+		border-radius: 8px;
+		box-shadow: 0 10px 48px rgba(0, 0, 0, 0.6);
+	}
+	.vkcode-lightbox-close {
+		position: fixed;
+		top: 16px;
+		right: 20px;
+		width: 34px;
+		height: 34px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.12);
+		color: #ffffff;
+		font-size: 16px;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.vkcode-lightbox-close:hover {
+		background: rgba(255, 255, 255, 0.24);
+	}
 	`;
 	document.body.appendChild(style);
 
@@ -564,7 +738,7 @@ export const activate: ActivationFunction<void> = (ctx) => {
 				case 'image/git':
 					{
 						disposables.get(outputInfo.id)?.dispose();
-						const disposable = renderImage(outputInfo, element);
+						const disposable = renderImage(outputInfo, element, ctx.postMessage?.bind(ctx));
 						disposables.set(outputInfo.id, disposable);
 					}
 					break;

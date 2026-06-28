@@ -9,6 +9,10 @@
 	"engines": {
 		"vscode": "^1.57.0"
 	},
+	"main": "./out/extensionMain",
+	"activationEvents": [
+		"onRenderer:vscode.builtin-renderer"
+	],
 	"capabilities": {
 		"virtualWorkspaces": true,
 		"untrustedWorkspaces": {
@@ -21,7 +25,7 @@
 				"id": "vscode.builtin-renderer",
 				"entrypoint": "./renderer-out/index.js",
 				"displayName": "VS Code Builtin Notebook Output Renderer",
-				"requiresMessaging": "never",
+				"requiresMessaging": "optional",
 				"mimeTypes": [
 					"image/gif",
 					"image/png",

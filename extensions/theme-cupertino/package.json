@@ -67,6 +67,8 @@
       "editor.cursorBlinking": "smooth",
       "editor.cursorSmoothCaretAnimation": "on",
       "editor.fontLigatures": true,
+      "notebook.markup.fontFamily": "\"Segoe UI Variable Text\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, system-ui, \"Inter\", \"Helvetica Neue\", Arial, sans-serif",
+      "notebook.markup.fontSize": 14,
       "breadcrumbs.enabled": false,
       "chat.titleBar.signIn.enabled": false,
       "chat.titleBar.openInAgentsWindow.enabled": false

@@ -129,6 +129,99 @@ const sanitizerOptions: DOMPurifyConfig = {
 	],
 };
 
+// vkcode: "view fullscreen" affordance shown on hover over markdown image cards.
+const VKCODE_EXPAND_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2 2h5v1.5H3.5V7H2V2zm12 0v5h-1.5V3.5H9V2h5zM2 9h1.5v3.5H7V14H2V9zm10.5 0H14v5H9v-1.5h3.5V9z"/></svg>';
+
+/**
+ * vkcode: opens a markdown image in a fullscreen lightbox. The overlay is appended to the image's
+ * own root (the cell's shadow root) so the renderer's styles apply, and `position: fixed` makes it
+ * cover the viewport. Tries the real Fullscreen API first and falls back to the overlay.
+ */
+function openImageLightbox(img: HTMLImageElement): void {
+	const host: Node = (img.getRootNode() as ShadowRoot).host ? img.getRootNode() : document.body;
+
+	const overlay = document.createElement('div');
+	overlay.className = 'vkcode-img-lightbox';
+
+	const big = document.createElement('img');
+	big.src = img.currentSrc || img.src;
+	if (img.alt) {
+		big.alt = img.alt;
+	}
+	overlay.appendChild(big);
+
+	const closeBtn = document.createElement('button');
+	closeBtn.className = 'vkcode-lightbox-close';
+	closeBtn.type = 'button';
+	closeBtn.title = 'Close (Esc)';
+	closeBtn.setAttribute('aria-label', 'Close');
+	closeBtn.textContent = '✕';
+	overlay.appendChild(closeBtn);
+
+	const cleanup = () => {
+		document.removeEventListener('keydown', onKey);
+		document.removeEventListener('fullscreenchange', onFullscreenChange);
+		if (document.fullscreenElement === overlay) {
+			document.exitFullscreen?.().catch(() => { /* ignore */ });
+		}
+		overlay.remove();
+	};
+	const onKey = (e: KeyboardEvent) => {
+		if (e.key === 'Escape') {
+			cleanup();
+		}
+	};
+	const onFullscreenChange = () => {
+		if (!document.fullscreenElement) {
+			cleanup();
+		}
+	};
+
+	overlay.addEventListener('click', cleanup);
+	closeBtn.addEventListener('click', cleanup);
+	document.addEventListener('keydown', onKey);
+	document.addEventListener('fullscreenchange', onFullscreenChange);
+
+	host.appendChild(overlay);
+	overlay.requestFullscreen?.().catch(() => { /* fall back to the in-webview overlay */ });
+}
+
+/**
+ * vkcode: wraps each rendered markdown image in a card with a hover "open image" button. Clicking it
+ * posts the image to the extension host, which opens it in a separate editor tab (`post`); if
+ * messaging is unavailable it falls back to the in-cell lightbox.
+ */
+function enhanceMarkdownImages(root: ParentNode, post: ((message: unknown) => void) | undefined): void {
+	for (const img of Array.from(root.querySelectorAll('img'))) {
+		if (img.closest('.vkcode-img-card')) {
+			continue;
+		}
+		const card = document.createElement('span');
+		card.className = 'vkcode-img-card';
+
+		const button = document.createElement('button');
+		button.className = 'vkcode-img-expand';
+		button.type = 'button';
+		button.title = 'Open image in editor';
+		button.setAttribute('aria-label', 'Open image in editor');
+		button.innerHTML = VKCODE_EXPAND_ICON;
+		button.addEventListener('click', e => {
+			e.preventDefault();
+			e.stopPropagation();
+			const src = img.currentSrc || img.src;
+			if (post && src) {
+				post({ type: 'vkcode-open-image', src, title: img.alt || undefined });
+			} else {
+				openImageLightbox(img);
+			}
+		});
+
+		img.replaceWith(card);
+		card.appendChild(img);
+		card.appendChild(button);
+	}
+}
+
 export const activate: ActivationFunction<void> = (ctx) => {
 	const markdownIt: MarkdownIt = new MarkdownIt({
 		html: true,
@@ -292,6 +385,142 @@ export const activate: ActivationFunction<void> = (ctx) => {
 		ol {
 			margin-bottom: 0.7em;
 		}
+
+		/* vkcode: refined notebook markdown typography */
+		#preview { line-height: 1.6; }
+		#preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+			font-weight: 600;
+			line-height: 1.3;
+			margin: 1.2em 0 0.5em;
+			letter-spacing: -0.01em;
+		}
+		#preview h1 {
+			font-size: 1.9em;
+			padding-bottom: 0.24em;
+			border-bottom: 1px solid var(--vscode-widget-border, rgba(130, 130, 130, 0.25));
+		}
+		#preview h2 {
+			font-size: 1.5em;
+			padding-bottom: 0.2em;
+			border-bottom: 1px solid var(--vscode-widget-border, rgba(130, 130, 130, 0.18));
+		}
+		#preview h3 { font-size: 1.25em; }
+		#preview h4 { font-size: 1.1em; }
+		#preview h5 { font-size: 1em; }
+		#preview h6 { font-size: 0.9em; color: var(--vscode-descriptionForeground); }
+		#preview p { margin: 0.6em 0; }
+		#preview a { color: var(--vscode-textLink-foreground); }
+		#preview blockquote {
+			margin: 0.8em 0;
+			padding: 0.2em 1em;
+			color: var(--vscode-textBlockQuote-foreground, var(--vscode-descriptionForeground));
+			border-left: 3px solid var(--vscode-textBlockQuote-border, var(--vscode-textLink-foreground));
+			background: var(--vscode-textBlockQuote-background, rgba(130, 130, 130, 0.06));
+			border-radius: 0 4px 4px 0;
+		}
+		#preview :not(pre) > code {
+			padding: 0.15em 0.4em;
+			border-radius: 4px;
+			background: var(--vscode-textCodeBlock-background, rgba(130, 130, 130, 0.14));
+		}
+		#preview pre {
+			padding: 12px 14px;
+			border-radius: 8px;
+			overflow: auto;
+			background: var(--vscode-textCodeBlock-background, rgba(130, 130, 130, 0.10));
+			border: 1px solid var(--vscode-widget-border, transparent);
+		}
+
+		/* vkcode: markdown image cards with a hover "view fullscreen" button */
+		.vkcode-img-card {
+			position: relative;
+			display: inline-block;
+			max-width: 100%;
+			margin: 6px 0;
+			padding: 6px;
+			border-radius: 10px;
+			line-height: 0;
+			background: var(--vscode-editorWidget-background, transparent);
+			border: 1px solid var(--vscode-widget-border, transparent);
+			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 6px 18px rgba(0, 0, 0, 0.10);
+			transition: box-shadow 0.15s ease;
+		}
+		.vkcode-img-card:hover {
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24), 0 12px 30px rgba(0, 0, 0, 0.16);
+		}
+		.vkcode-img-card > img {
+			display: block;
+			max-width: 100%;
+			max-height: 360px;
+			width: auto;
+			height: auto;
+			border-radius: 6px;
+			object-fit: contain;
+		}
+		.vkcode-img-expand {
+			position: absolute;
+			top: 12px;
+			right: 12px;
+			width: 28px;
+			height: 28px;
+			padding: 0;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border: 1px solid var(--vscode-widget-border, transparent);
+			border-radius: 6px;
+			background: var(--vscode-button-secondaryBackground, rgba(0, 0, 0, 0.6));
+			color: var(--vscode-button-secondaryForeground, #ffffff);
+			cursor: pointer;
+			opacity: 0;
+			transition: opacity 0.15s ease, background 0.15s ease;
+		}
+		.vkcode-img-card:hover .vkcode-img-expand,
+		.vkcode-img-expand:focus-visible {
+			opacity: 1;
+		}
+		.vkcode-img-expand:hover {
+			background: var(--vscode-button-hoverBackground, rgba(0, 0, 0, 0.8));
+		}
+		.vkcode-img-lightbox {
+			position: fixed;
+			inset: 0;
+			z-index: 2147483647;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+			box-sizing: border-box;
+			background: rgba(0, 0, 0, 0.86);
+			cursor: zoom-out;
+		}
+		.vkcode-img-lightbox img {
+			max-width: 96vw;
+			max-height: 94vh;
+			object-fit: contain;
+			border-radius: 8px;
+			box-shadow: 0 10px 48px rgba(0, 0, 0, 0.6);
+		}
+		.vkcode-lightbox-close {
+			position: fixed;
+			top: 16px;
+			right: 20px;
+			width: 34px;
+			height: 34px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border: none;
+			border-radius: 50%;
+			background: rgba(255, 255, 255, 0.12);
+			color: #ffffff;
+			font-size: 16px;
+			line-height: 1;
+			cursor: pointer;
+		}
+		.vkcode-lightbox-close:hover {
+			background: rgba(255, 255, 255, 0.24);
+		}
 	`;
 	const template = document.createElement('template');
 	template.classList.add('markdown-style');
@@ -339,6 +568,8 @@ export const activate: ActivationFunction<void> = (ctx) => {
 				previewNode.innerHTML = (ctx.workspace.isTrusted
 					? unsanitizedRenderedMarkdown
 					: DOMPurify.sanitize(unsanitizedRenderedMarkdown, sanitizerOptions)) as string;
+				// vkcode: present markdown images as cards with an "open in editor" button.
+				enhanceMarkdownImages(previewNode, ctx.postMessage?.bind(ctx));
 			}
 		},
 		extendMarkdownIt: (f: (md: typeof markdownIt) => void) => {
