@@ -88,3 +88,41 @@
 .monaco-workbench .part.titlebar.inactive .vkcode-branch-control {
 	opacity: 0.6;
 }
+
+/* Account control ("Sign In ⌄") */
+.monaco-workbench .part.titlebar .vkcode-account-control {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	height: 22px;
+	margin: 0 8px;
+	padding: 0 8px;
+	cursor: pointer;
+	color: var(--vscode-button-foreground, #ffffff);
+	background-color: var(--vscode-button-background, #0088ff);
+	border-radius: var(--vscode-cornerRadius-medium, 5px);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+	-webkit-app-region: no-drag;
+	z-index: 2500;
+	flex-shrink: 0;
+}
+
+.monaco-workbench .part.titlebar .vkcode-account-control:hover {
+	background-color: var(--vscode-button-hoverBackground, #0a7adf);
+}
+
+.monaco-workbench .part.titlebar .vkcode-account-control .vkcode-account-chevron {
+	display: flex;
+	align-items: center;
+	opacity: 0.85;
+}
+
+.monaco-workbench .part.titlebar .vkcode-account-control .vkcode-account-chevron .codicon {
+	font-size: 13px;
+}
+
+.monaco-workbench .part.titlebar.inactive .vkcode-account-control {
+	opacity: 0.6;
+}

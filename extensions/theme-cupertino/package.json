@@ -66,7 +66,8 @@
       "editor.cursorBlinking": "smooth",
       "editor.cursorSmoothCaretAnimation": "on",
       "editor.fontLigatures": true,
-      "breadcrumbs.enabled": false
+      "breadcrumbs.enabled": false,
+      "chat.titleBar.signIn.enabled": false
     }
   }
 }
