@@ -1,0 +1,72 @@
+{
+  "name": "theme-cupertino",
+  "displayName": "Cupertino Theme",
+  "description": "SwiftUI-inspired Cupertino color themes for vkcode (soft light and dark variants).",
+  "categories": [
+    "Themes"
+  ],
+  "version": "1.0.0",
+  "publisher": "vkcode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "*"
+  },
+  "contributes": {
+    "themes": [
+      {
+        "id": "Cupertino Night",
+        "label": "Cupertino Night",
+        "uiTheme": "vs-dark",
+        "path": "./themes/cupertino-dark-color-theme.json"
+      },
+      {
+        "id": "Cupertino Day",
+        "label": "Cupertino Day",
+        "uiTheme": "vs",
+        "path": "./themes/cupertino-light-color-theme.json"
+      },
+      {
+        "id": "Cupertino Night (Blue-Yellow Colour Blind)",
+        "label": "Cupertino Night (Blue-Yellow Colour Blind)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/cupertino-dark-by-colourblind-color-theme.json"
+      },
+      {
+        "id": "Cupertino Day (Blue-Yellow Colour Blind)",
+        "label": "Cupertino Day (Blue-Yellow Colour Blind)",
+        "uiTheme": "vs",
+        "path": "./themes/cupertino-light-by-colourblind-color-theme.json"
+      },
+      {
+        "id": "Cupertino Night (Red-Green Colour Blind)",
+        "label": "Cupertino Night (Red-Green Colour Blind)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/cupertino-dark-rg-colourblind-color-theme.json"
+      },
+      {
+        "id": "Cupertino Day (Red-Green Colour Blind)",
+        "label": "Cupertino Day (Red-Green Colour Blind)",
+        "uiTheme": "vs",
+        "path": "./themes/cupertino-light-rg-colourblind-color-theme.json"
+      }
+    ],
+    "configurationDefaults": {
+      "workbench.colorTheme": "Cupertino Night",
+      "workbench.preferredDarkColorTheme": "Cupertino Night",
+      "workbench.preferredLightColorTheme": "Cupertino Day",
+      "workbench.iconTheme": "vs-minimal",
+      "workbench.activityBar.location": "hidden",
+      "workbench.layoutControl.enabled": false,
+      "workbench.startupEditor": "none",
+      "workbench.panel.defaultLocation": "right",
+      "workbench.tree.indent": 14,
+      "workbench.editor.tabActionCloseVisibility": false,
+      "editor.minimap.enabled": false,
+      "editor.renderWhitespace": "none",
+      "editor.cursorBlinking": "smooth",
+      "editor.cursorSmoothCaretAnimation": "on",
+      "editor.fontLigatures": true,
+      "breadcrumbs.enabled": false
+    }
+  }
+}
