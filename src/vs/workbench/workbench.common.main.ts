@@ -56,6 +56,7 @@ import './browser/parts/paneCompositePartService.js';
 import './browser/parts/banner/bannerPart.js';
 import './browser/parts/statusbar/statusbarPart.js';
 import './browser/parts/statusbar/vkcodeDockToggles.contribution.js';
+import './browser/parts/editor/vkcodeEditorControls.contribution.js';
 import './browser/parts/titlebar/menubar.contribution.js';
 
 //#endregion
