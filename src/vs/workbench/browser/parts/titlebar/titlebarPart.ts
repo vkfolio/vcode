@@ -57,6 +57,7 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { safeIntl } from '../../../../base/common/date.js';
 import { IsCompactTitleBarContext, TitleBarVisibleContext } from '../../../common/contextkeys.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { VkcodeProjectControl, VkcodeBranchControl } from './vkcodeTitleControls.js';
 
 export interface ITitleVariable {
 	readonly name: string;
@@ -268,6 +269,8 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	protected appIcon: HTMLElement | undefined;
 	private appIconBadge: HTMLElement | undefined;
 	protected menubar?: HTMLElement;
+	protected vkcodeProjectControl?: VkcodeProjectControl;
+	protected vkcodeBranchControl?: VkcodeBranchControl;
 	private lastLayoutDimensions: Dimension | undefined;
 
 	private actionToolBar!: WorkbenchToolBar;
@@ -487,6 +490,17 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 			this.installMenubar();
 		}
 
+		// vkcode: Zed-style project switcher + git branch refs (main window, custom titlebar only)
+		if (!this.isAuxiliary && hasCustomTitlebar(this.configurationService, this.titleBarStyle)) {
+			this.vkcodeProjectControl = this._register(this.instantiationService.createInstance(VkcodeProjectControl));
+			this.vkcodeProjectControl.element.style.order = '3';
+			append(this.leftContent, this.vkcodeProjectControl.element);
+
+			this.vkcodeBranchControl = this._register(this.instantiationService.createInstance(VkcodeBranchControl));
+			this.vkcodeBranchControl.element.style.order = '4';
+			append(this.leftContent, this.vkcodeBranchControl.element);
+		}
+
 		// Title
 		this.title = append(this.centerContent, $('div.window-title'));
 		this.createTitle();
@@ -590,7 +604,11 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 		// Text Title
 		if (!this.isCommandCenterVisible) {
-			if (!isShowingTitleInNativeTitlebar) {
+			// vkcode: when the Zed-style project control is present it identifies the
+			// workspace on the left, so keep the title bar center empty to match the design.
+			if (this.vkcodeProjectControl) {
+				reset(this.title);
+			} else if (!isShowingTitleInNativeTitlebar) {
 				this.title.textContent = this.windowTitle.value;
 				this.titleDisposables.add(this.windowTitle.onDidChange(() => {
 					this.title.textContent = this.windowTitle.value;

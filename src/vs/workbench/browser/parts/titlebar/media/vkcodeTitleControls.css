@@ -1,0 +1,90 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Project control (project name + recent-projects switcher) */
+.monaco-workbench .part.titlebar .vkcode-project-control {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	padding: 0 8px;
+	gap: 5px;
+	cursor: pointer;
+	border-radius: var(--vscode-cornerRadius-medium, 5px);
+	-webkit-app-region: no-drag;
+	z-index: 2500;
+	flex-shrink: 0;
+	max-width: 320px;
+}
+
+.monaco-workbench .part.titlebar .vkcode-project-control:hover {
+	background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
+}
+
+.monaco-workbench .part.titlebar .vkcode-project-control .vkcode-project-icon {
+	display: flex;
+	align-items: center;
+	opacity: 0.75;
+	font-size: 14px;
+}
+
+.monaco-workbench .part.titlebar .vkcode-project-control .vkcode-project-name {
+	color: var(--vscode-textLink-foreground, #0088ff);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Git branch references */
+.monaco-workbench .part.titlebar .vkcode-branch-control {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	gap: 6px;
+	margin-left: 4px;
+	padding: 0 4px;
+	-webkit-app-region: no-drag;
+	z-index: 2500;
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.monaco-workbench .part.titlebar .vkcode-branch-control.empty {
+	display: none;
+}
+
+.monaco-workbench .part.titlebar .vkcode-branch-control .vkcode-branch-ref {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	color: var(--vscode-titleBar-activeForeground);
+	opacity: 0.7;
+	font-size: 11px;
+	white-space: nowrap;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	padding: 1px 4px;
+}
+
+.monaco-workbench .part.titlebar .vkcode-branch-control .vkcode-branch-ref:hover {
+	opacity: 1;
+	background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
+}
+
+.monaco-workbench .part.titlebar .vkcode-branch-control .vkcode-branch-ref .codicon {
+	font-size: 13px;
+}
+
+.monaco-workbench .part.titlebar .vkcode-branch-control .vkcode-branch-sep {
+	opacity: 0.35;
+	font-size: 11px;
+}
+
+.monaco-workbench .part.titlebar.inactive .vkcode-project-control,
+.monaco-workbench .part.titlebar.inactive .vkcode-branch-control {
+	opacity: 0.6;
+}
