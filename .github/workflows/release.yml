@@ -42,14 +42,9 @@ jobs:
             os: windows-latest
             platform: win32
             arch: x64
-          - name: macos-arm64
-            os: macos-14
-            platform: darwin
-            arch: arm64
-          - name: macos-x64
-            os: macos-13
-            platform: darwin
-            arch: x64
+          # macOS builds re-enable once the Windows build is green:
+          # - { name: macos-arm64, os: macos-14, platform: darwin, arch: arm64 }
+          # - { name: macos-x64, os: macos-13, platform: darwin, arch: x64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
