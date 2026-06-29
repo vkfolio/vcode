@@ -265,11 +265,16 @@ export const cleanExtensionsBuildTask = task.define('clean-extensions-build', ut
 /**
  * brings in the marketplace extensions for the build
  */
-const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => {
-	const stream = ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build'));
-	stream.on('error', (e: unknown) => console.error('=== bundle-marketplace-extensions-build STREAM ERROR ===\n', (e as Error)?.stack || e));
-	return stream;
-});
+const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => new Promise<void>((resolve, reject) => {
+	// Return an explicit promise rather than the raw stream: gulp's stream-completion tracking was
+	// declaring this task incomplete in CI ("did you forget to signal async completion?") even though
+	// the downloads finished. Rejecting on error also surfaces the real failure instead of swallowing it.
+	ext.packageMarketplaceExtensionsStream(false)
+		.pipe(gulp.dest('.build'))
+		.on('error', (e: unknown) => reject(e instanceof Error ? e : new Error(String(e))))
+		.on('finish', resolve)
+		.on('end', resolve);
+}));
 
 /**
  * Compiles the non-native extensions for the build
