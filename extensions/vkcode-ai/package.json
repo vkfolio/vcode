@@ -104,7 +104,15 @@
 						"number"
 					],
 					"default": "auto",
-					"markdownDescription": "Context window for the local model. `auto` picks the largest size that fits your available VRAM (recommended). Or set a number of tokens to cap it (lower it if you hit out-of-memory errors)."
+					"markdownDescription": "Default context window (tokens) for the local model. `auto` uses a VRAM-safe default (8192) that works for any model on an 8GB-class GPU. Set a number to use a larger window — the model must support it and its KV cache must fit in VRAM (raising this on a big-context model like Qwen3 can run out of memory). For per-model sizes use `#vkcode.ai.contextSizeByModel#`. Changing this reloads the model."
+				},
+				"vkcode.ai.contextSizeByModel": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "number"
+					},
+					"markdownDescription": "Per-model context window (tokens), taking precedence over `#vkcode.ai.contextSize#`. Each key is matched case-insensitively as a substring of the model file path, so a short name fragment works. Example:\n\n```json\n\"vkcode.ai.contextSizeByModel\": {\n  \"gemma\": 16384,\n  \"qwen\": 8192,\n  \"deepseek\": 8192\n}\n```\n\nThe chosen window's KV cache must fit in VRAM. Changing this reloads the model."
 				},
 				"vkcode.ai.gpu": {
 					"type": "string",

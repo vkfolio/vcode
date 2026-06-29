@@ -9,6 +9,9 @@ import * as net from 'net';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+/** Context window used when `vkcode.ai.contextSize` is `auto`; fits any model on an 8GB-class GPU. */
+const DEFAULT_CONTEXT = 8192;
+
 /** A single chat turn handed to the engine. */
 export interface IChatTurn {
 	readonly role: 'system' | 'user' | 'assistant';
@@ -73,8 +76,8 @@ export class LlamaService {
 
 	constructor(
 		private readonly modelPath: () => string,
-		/** Returns 'auto' (use the model's trained size) or a positive number to cap the context window. */
-		private readonly contextSize: () => 'auto' | number,
+		/** Given the model path, returns 'auto' (use the VRAM-safe default) or a token count to cap the window. */
+		private readonly contextSize: (model: string) => 'auto' | number,
 		/** Returns the user's GPU backend preference. */
 		private readonly gpuPreference: () => GpuPreference,
 		/** Returns the path to the llama.cpp server executable. */
@@ -117,11 +120,6 @@ export class LlamaService {
 		});
 	}
 
-	/** Maps the GPU preference to a llama.cpp `--n-gpu-layers` value (0 = CPU, 999 = offload all). */
-	private gpuLayers(): number {
-		return this.gpuPreference() === 'off' ? 0 : 999;
-	}
-
 	/** Starts the server (once) and resolves with its port, or undefined if it could not be started. */
 	private ensureServer(): Promise<number | undefined> {
 		if (!this.startPromise) {
@@ -149,18 +147,27 @@ export class LlamaService {
 			async () => {
 				try {
 					const port = await LlamaService.findFreePort();
-					const configured = this.contextSize();
-					const ctx = configured === 'auto' || !(configured > 0) ? 0 : configured;
+					const configured = this.contextSize(model);
+					// 'auto' uses a VRAM-safe default rather than llama.cpp's `-c 0` (= the model's full
+					// trained window): models like Qwen3 advertise a 262K context whose KV cache would
+					// not fit in VRAM. A number sets the window explicitly.
+					const ctx = configured === 'auto' || !(configured > 0) ? DEFAULT_CONTEXT : configured;
+					const cpuOnly = this.gpuPreference() === 'off';
 					const args = [
 						'-m', model,
 						'--host', '127.0.0.1',
 						'--port', String(port),
-						'-ngl', String(this.gpuLayers()),
 						'-c', String(ctx),
 						'--no-webui',
 						'--jinja'
 					];
-					this.log.info(`Loading model "${path.basename(model)}" (server ${path.basename(server)}, -ngl ${this.gpuLayers()}, -c ${ctx}, port ${port})`);
+					// On CPU mode pin 0 GPU layers; otherwise omit -ngl so llama.cpp auto-fits as many
+					// layers as fit in VRAM (a model larger than VRAM then spills to CPU instead of OOMing,
+					// and forcing -ngl 999 would otherwise disable that fit and warn).
+					if (cpuOnly) {
+						args.push('-ngl', '0');
+					}
+					this.log.info(`Loading model "${path.basename(model)}" (server ${path.basename(server)}, ${cpuOnly ? 'CPU' : 'GPU auto-fit'}, -c ${ctx}, port ${port})`);
 					const proc = cp.spawn(server, args, { cwd: path.dirname(server), windowsHide: true });
 					this.serverProcess = proc;
 
@@ -295,6 +302,10 @@ export class LlamaService {
 				messages,
 				max_tokens: maxTokens,
 				temperature: options.temperature ?? 0.2,
+				// Belt-and-suspenders end markers: well-behaved models stop at their real EOS before
+				// emitting these, but they cut off models whose GGUF metadata leaves the template/stop
+				// tokens misconfigured (e.g. older quants that fall back to ChatML and never stop).
+				stop: ['<|im_end|>', '<|EOT|>', '<|endoftext|>', '<end_of_turn>', '<｜end▁of▁sentence｜>'],
 				stream: true
 			}, options.signal, delta => {
 				if (typeof delta.reasoning_content === 'string') {
@@ -322,29 +333,49 @@ export class LlamaService {
 		return result.answer;
 	}
 
-	/** Produces a fill-in-the-middle completion for inline suggestions. */
+	/**
+	 * Produces an inline (ghost-text) completion. Prefers true fill-in-the-middle (uses the code on
+	 * both sides of the cursor) for models that support it; falls back to a plain continuation of the
+	 * prefix for models without FIM tokens (e.g. Gemma), so suggestions still appear either way.
+	 */
 	infill(prefix: string, suffix: string, options: IPromptOptions = {}): Promise<string> {
 		return this.track(async () => {
 			const port = await this.ensureServer();
 			if (!port) {
 				return '';
 			}
-			const res = await fetch(`${this.base()}/infill`, {
+			const nPredict = options.maxTokens ?? 64;
+			const temperature = options.temperature ?? 0.1;
+
+			// 1) Fill-in-the-middle (best when the model has FIM tokens).
+			const fim = await fetch(`${this.base()}/infill`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					input_prefix: prefix,
-					input_suffix: suffix,
-					n_predict: options.maxTokens ?? 64,
-					temperature: options.temperature ?? 0.1
-				}),
+				body: JSON.stringify({ input_prefix: prefix, input_suffix: suffix, n_predict: nPredict, temperature }),
 				signal: options.signal
 			});
-			if (!res.ok) {
+			if (fim.ok) {
+				const json = await fim.json() as { content?: string };
+				const completion = json.content ?? '';
+				// Broken FIM metadata emits control-character garbage; never show that as ghost text.
+				if (completion && !hasControlChars(completion)) {
+					return completion;
+				}
+			}
+
+			// 2) Fall back to a plain continuation from the prefix (works for any model).
+			const comp = await fetch(`${this.base()}/completion`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ prompt: prefix, n_predict: nPredict, temperature, cache_prompt: true }),
+				signal: options.signal
+			});
+			if (!comp.ok) {
 				return '';
 			}
-			const json = await res.json() as { content?: string };
-			return json.content ?? '';
+			const json = await comp.json() as { content?: string };
+			const completion = json.content ?? '';
+			return hasControlChars(completion) ? '' : completion;
 		}, '');
 	}
 
@@ -432,4 +463,15 @@ export class LlamaService {
 			}
 		}
 	}
+}
+
+/** True if `text` contains control characters other than tab, newline or carriage return. */
+function hasControlChars(text: string): boolean {
+	for (let i = 0; i < text.length; i++) {
+		const code = text.charCodeAt(i);
+		if (code < 32 && code !== 9 && code !== 10 && code !== 13) {
+			return true;
+		}
+	}
+	return false;
 }

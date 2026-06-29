@@ -18,7 +18,16 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(output);
 	const llama = new LlamaService(
 		() => config().get<string>('ai.model', ''),
-		() => {
+		(model: string) => {
+			// A per-model entry (key matched as a case-insensitive substring of the model path) wins;
+			// otherwise fall back to the global default.
+			const byModel = config().get<Record<string, number>>('ai.contextSizeByModel', {}) ?? {};
+			const lc = model.toLowerCase();
+			for (const [key, value] of Object.entries(byModel)) {
+				if (typeof value === 'number' && value > 0 && key && lc.includes(key.toLowerCase())) {
+					return value;
+				}
+			}
 			const value = config().get<string | number>('ai.contextSize', 'auto');
 			return typeof value === 'number' && value > 0 ? value : 'auto';
 		},
@@ -35,7 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	// Reload the model if the user points at a different GGUF file, context size, GPU backend or server,
 	// and free memory entirely when the master switch is turned off.
 	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-		if (e.affectsConfiguration('vkcode.ai.model') || e.affectsConfiguration('vkcode.ai.contextSize') || e.affectsConfiguration('vkcode.ai.gpu') || e.affectsConfiguration('vkcode.ai.serverPath')) {
+		if (e.affectsConfiguration('vkcode.ai.model') || e.affectsConfiguration('vkcode.ai.contextSize') || e.affectsConfiguration('vkcode.ai.contextSizeByModel') || e.affectsConfiguration('vkcode.ai.gpu') || e.affectsConfiguration('vkcode.ai.serverPath')) {
 			llama.reset();
 		}
 		if (e.affectsConfiguration('vkcode.ai.enabled') && !config().get<boolean>('ai.enabled', true)) {

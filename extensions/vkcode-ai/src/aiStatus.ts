@@ -126,7 +126,7 @@ export function registerAiStatus(context: vscode.ExtensionContext, llama: LlamaS
 
 	async function pickModel(): Promise<void> {
 		const config = vscode.workspace.getConfiguration('vkcode');
-		const current = config.get<string>('ai.model', '');
+		const current = config.get<string>('ai.model', '').replace(/\\/g, '/');
 		const models = discoverModels(current);
 		if (models.length === 0) {
 			void vscode.window.showWarningMessage(vscode.l10n.t('No .gguf models found next to the configured model.'));
@@ -166,11 +166,14 @@ function gb(bytes: number): string {
  * Always includes the configured model itself.
  */
 function discoverModels(configured: string): string[] {
+	// Normalize to forward slashes so the result is valid in settings.json and works regardless of
+	// whether the configured path used `\` or `/` (Windows fs accepts both).
+	const norm = configured.replace(/\\/g, '/');
 	const found = new Set<string>();
-	if (configured && fs.existsSync(configured)) {
-		found.add(configured);
+	if (norm && fs.existsSync(norm)) {
+		found.add(norm);
 	}
-	const root = modelsRoot(configured);
+	const root = modelsRoot(norm);
 	const scan = (dir: string, depth: number) => {
 		let entries: fs.Dirent[];
 		try {
@@ -179,7 +182,7 @@ function discoverModels(configured: string): string[] {
 			return;
 		}
 		for (const entry of entries) {
-			const full = path.join(dir, entry.name);
+			const full = `${dir}/${entry.name}`;
 			if (entry.isDirectory()) {
 				if (depth > 0) {
 					scan(full, depth - 1);
@@ -195,21 +198,21 @@ function discoverModels(configured: string): string[] {
 	return [...found].sort();
 }
 
-/** Walks up from the configured model to the nearest "models" folder, else uses the model's folder. */
+/** Walks up from the (forward-slash) configured model to the nearest "models" folder, else its folder. */
 function modelsRoot(configured: string): string {
 	if (!configured) {
 		return '';
 	}
-	let dir = path.dirname(configured);
+	let dir = path.posix.dirname(configured);
 	for (let i = 0; i < 4; i++) {
-		if (path.basename(dir).toLowerCase() === 'models') {
+		if (path.posix.basename(dir).toLowerCase() === 'models') {
 			return dir;
 		}
-		const parent = path.dirname(dir);
+		const parent = path.posix.dirname(dir);
 		if (parent === dir) {
 			break;
 		}
 		dir = parent;
 	}
-	return path.dirname(configured);
+	return path.posix.dirname(configured);
 }
