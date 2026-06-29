@@ -59,6 +59,18 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Locate Visual Studio (Windows)
+        # VS Code's preinstall validates the C/C++ toolchain. The runner's VS location/edition can
+        # differ from the default paths it probes, so point it at the install vswhere reports.
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { Write-Error "No Visual Studio with the C++ toolchain found"; exit 1 }
+          Write-Host "Visual Studio: $vs"
+          "vs2022_install=$vs" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install dependencies
         # `npm install` (not `npm ci`): this fork doesn't commit package-lock.json files
         # (they're excluded by a global gitignore), and VS Code's postinstall reuses the same
