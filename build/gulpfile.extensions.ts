@@ -265,7 +265,11 @@ export const cleanExtensionsBuildTask = task.define('clean-extensions-build', ut
 /**
  * brings in the marketplace extensions for the build
  */
-const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build')));
+const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => {
+	const stream = ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build'));
+	stream.on('error', (e: unknown) => console.error('=== bundle-marketplace-extensions-build STREAM ERROR ===\n', (e as Error)?.stack || e));
+	return stream;
+});
 
 /**
  * Compiles the non-native extensions for the build
