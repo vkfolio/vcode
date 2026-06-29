@@ -461,6 +461,11 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 		...builtInExtensions.filter(({ name }) => (forWeb ? !marketplaceWebExtensionsExclude.has(name) : true)),
 		...(forWeb ? webBuiltInExtensions : [])
 	];
+	// With no marketplace extensions to fetch, return a stream that ends immediately instead of an
+	// empty es.merge() (which never signals completion).
+	if (marketplaceExtensionsDescriptions.length === 0) {
+		return es.readArray([]);
+	}
 	const marketplaceExtensionsStream = minifyExtensionResources(
 		es.merge(
 			...marketplaceExtensionsDescriptions
