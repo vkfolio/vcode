@@ -29,10 +29,6 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    # The build downloads marketplace extensions and Electron from the GitHub API; authenticate so it
-    # isn't throttled by the 60-req/hr unauthenticated rate limit (which fails the build intermittently).
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
