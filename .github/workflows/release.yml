@@ -29,6 +29,11 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Authenticate GitHub API calls (marketplace extensions + Electron downloads) so they aren't
+    # throttled by the unauthenticated rate limit, which fails the build intermittently. The auth
+    # header format is fixed to Bearer in build/lib/fetch.ts.
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:

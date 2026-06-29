@@ -109,7 +109,9 @@ const ghApiHeaders: Record<string, string> = {
 	'User-Agent': 'VSCode Build',
 };
 if (process.env.GITHUB_TOKEN) {
-	ghApiHeaders.Authorization = 'Basic ' + Buffer.from(process.env.GITHUB_TOKEN).toString('base64');
+	// Bearer is the format the GitHub REST API and release-asset downloads accept for both PATs and
+	// the Actions GITHUB_TOKEN; `Basic base64(token)` (no username) is rejected as 401 by the API.
+	ghApiHeaders.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
 }
 const ghDownloadHeaders = {
 	...ghApiHeaders,
