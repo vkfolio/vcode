@@ -531,9 +531,12 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 }
 
 function hasAuthenticodeSignature(filePath: string): Promise<boolean> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const proc = cp.spawn('signtool.exe', ['verify', '/pa', filePath]);
-		proc.on('error', reject);
+		// signtool.exe is only on PATH inside the signing pipeline. For unsigned builds (e.g. the
+		// GitHub Actions release) it's absent; treat that as "no signature to strip" so rcedit can
+		// still patch version info instead of failing with spawn ENOENT.
+		proc.on('error', () => resolve(false));
 		proc.on('exit', code => resolve(code === 0));
 	});
 }
