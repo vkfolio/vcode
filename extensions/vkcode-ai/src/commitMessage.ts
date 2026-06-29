@@ -49,15 +49,17 @@ export function registerCommitMessage(context: vscode.ExtensionContext, llama: L
 			return;
 		}
 
-		const staged = (await repository.diff(true)).trim();
-		if (!staged) {
-			void vscode.window.showInformationMessage(vscode.l10n.t('No staged changes to summarize. Stage some changes first.'));
+		// Prefer staged changes; if nothing is staged, summarize the unstaged working-tree changes so
+		// the action works even when the user hasn't run `git add`.
+		const changes = (await repository.diff(true)).trim() || (await repository.diff(false)).trim();
+		if (!changes) {
+			void vscode.window.showInformationMessage(vscode.l10n.t('No changes to summarize. Make some edits first.'));
 			return;
 		}
 
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.SourceControl, title: vscode.l10n.t('Generating commit message…') }, async () => {
-			const diff = staged.length > DIFF_BUDGET ? `${staged.slice(0, DIFF_BUDGET)}\n…(truncated)` : staged;
-			const message = (await llama.instruct(SYSTEM_PROMPT, `Write a commit message for this staged diff:\n\n${diff}`, { maxTokens: 200, temperature: 0.2 })).trim();
+			const diff = changes.length > DIFF_BUDGET ? `${changes.slice(0, DIFF_BUDGET)}\n…(truncated)` : changes;
+			const message = (await llama.instruct(SYSTEM_PROMPT, `Write a commit message for this diff:\n\n${diff}`, { maxTokens: 200, temperature: 0.2 })).trim();
 			if (message) {
 				repository.inputBox.value = stripFences(message);
 			} else {

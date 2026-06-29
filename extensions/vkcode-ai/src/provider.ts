@@ -20,13 +20,15 @@ export class QwenChatProvider implements vscode.LanguageModelChatProvider {
 	constructor(private readonly llama: LlamaService) { }
 
 	provideLanguageModelChatInformation(_options: vscode.PrepareLanguageModelChatModelOptions, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
-		const contextSize = vscode.workspace.getConfiguration('vkcode').get<number>('ai.contextSize', 4096);
+		// The real context size is auto-fit to VRAM at load time; advertise a conservative input budget.
+		const configured = vscode.workspace.getConfiguration('vkcode').get<string | number>('ai.contextSize', 'auto');
+		const contextSize = typeof configured === 'number' && configured > 0 ? configured : 8192;
 		return [{
 			id: MODEL_ID,
 			name: 'Qwen (local)',
 			family: 'qwen',
 			version: '3.5-4b',
-			maxInputTokens: Math.max(1024, contextSize - 512),
+			maxInputTokens: Math.max(1024, contextSize - 1024),
 			maxOutputTokens: 1024,
 			capabilities: { toolCalling: true, imageInput: false },
 			isDefault: true,
@@ -35,15 +37,25 @@ export class QwenChatProvider implements vscode.LanguageModelChatProvider {
 	}
 
 	async provideLanguageModelChatResponse(_model: vscode.LanguageModelChatInformation, messages: readonly vscode.LanguageModelChatRequestMessage[], _options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart>, token: vscode.CancellationToken): Promise<void> {
+		const thinkingOn = vscode.workspace.getConfiguration('vkcode').get<boolean>('ai.thinking', false);
 		const turns = messages.map(toTurn);
 		const controller = new AbortController();
 		token.onCancellationRequested(() => controller.abort());
-		await this.llama.chat(turns, {
-			maxTokens: 1024,
+
+		// The engine separates the reasoning (a `<think>` segment) from the answer for us. We don't
+		// stream raw chunks because the reasoning has to be rendered as a distinct quote block.
+		const { thinking, answer } = await this.llama.chat(turns, {
+			maxTokens: thinkingOn ? 3072 : 1024,
 			temperature: 0.2,
 			signal: controller.signal,
-			onTextChunk: chunk => progress.report(new vscode.LanguageModelTextPart(chunk))
+			think: thinkingOn
 		});
+
+		if (thinkingOn && thinking) {
+			const quoted = thinking.split('\n').map(line => `> ${line}`).join('\n');
+			progress.report(new vscode.LanguageModelTextPart(`> 🧠 **Reasoning**\n${quoted}\n\n`));
+		}
+		progress.report(new vscode.LanguageModelTextPart(answer || thinking || vscode.l10n.t('_(no response)_')));
 	}
 
 	async provideTokenCount(_model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatRequestMessage, _token: vscode.CancellationToken): Promise<number> {

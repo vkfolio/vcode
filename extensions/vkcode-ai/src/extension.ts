@@ -13,9 +13,16 @@ import { QWEN_VENDOR, QwenChatProvider } from './provider';
 
 export function activate(context: vscode.ExtensionContext): void {
 	const config = () => vscode.workspace.getConfiguration('vkcode');
+	// A log channel the user can open ("Output → vkcode AI") to watch model loading and each request.
+	const output = vscode.window.createOutputChannel('vkcode AI', { log: true });
+	context.subscriptions.push(output);
 	const llama = new LlamaService(
 		() => config().get<string>('ai.model', ''),
-		() => config().get<number>('ai.contextSize', 4096)
+		() => {
+			const value = config().get<string | number>('ai.contextSize', 'auto');
+			return typeof value === 'number' && value > 0 ? value : 'auto';
+		},
+		output
 	);
 
 	// Reload the model if the user points at a different GGUF file.
@@ -27,8 +34,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	context.subscriptions.push(vscode.lm.registerLanguageModelChatProvider(QWEN_VENDOR, new QwenChatProvider(llama)));
 
-	registerAiStatus(context);
-	registerChatParticipant(context);
+	registerAiStatus(context, llama, output);
+	registerChatParticipant(context, output);
 	registerInlineCompletions(context, llama);
 	registerCommitMessage(context, llama);
 }

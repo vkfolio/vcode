@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { LlamaService } from './llama';
 
 /** Reads the master AI enablement flag. */
 export function isAiEnabled(): boolean {
@@ -11,20 +12,32 @@ export function isAiEnabled(): boolean {
 }
 
 /**
- * Bottom status-bar toggle for the on-device AI. Flipping it updates `vkcode.ai.enabled`, which the
- * inline-completion provider, chat participant and commit-message command all consult before running.
+ * Bottom status-bar item for the on-device AI. Shows a spinner while the model is loading or thinking
+ * (so it's obvious work is happening), and toggles `vkcode.ai.enabled` on click. Clicking while the
+ * model is busy opens the "vkcode AI" output log instead.
  */
-export function registerAiStatus(context: vscode.ExtensionContext): void {
+export function registerAiStatus(context: vscode.ExtensionContext, llama: LlamaService, output: vscode.LogOutputChannel): void {
 	const item = vscode.window.createStatusBarItem('vkcode.ai.status', vscode.StatusBarAlignment.Right, 40);
 	item.name = vscode.l10n.t('vkcode AI');
-	item.command = 'vkcode.ai.toggle';
 
 	const render = () => {
 		const on = isAiEnabled();
-		item.text = on ? '$(sparkle) AI' : '$(circle-slash) AI';
-		item.tooltip = on
-			? vscode.l10n.t('vkcode AI is on — click to turn off')
-			: vscode.l10n.t('vkcode AI is off — click to turn on');
+		const status = llama.status;
+		if (on && status === 'loading') {
+			item.text = '$(loading~spin) AI model…';
+			item.tooltip = vscode.l10n.t('Loading the local AI model… (click to view logs)');
+			item.command = 'vkcode.ai.showOutput';
+		} else if (on && status === 'thinking') {
+			item.text = '$(loading~spin) AI…';
+			item.tooltip = vscode.l10n.t('The local AI is thinking… (click to view logs)');
+			item.command = 'vkcode.ai.showOutput';
+		} else {
+			item.text = on ? '$(sparkle) AI' : '$(circle-slash) AI';
+			item.tooltip = on
+				? vscode.l10n.t('vkcode AI is on — click to turn off')
+				: vscode.l10n.t('vkcode AI is off — click to turn on');
+			item.command = 'vkcode.ai.toggle';
+		}
 		item.show();
 	};
 
@@ -34,6 +47,17 @@ export function registerAiStatus(context: vscode.ExtensionContext): void {
 		await config.update('ai.enabled', next, vscode.ConfigurationTarget.Global);
 	});
 
+	const showOutput = vscode.commands.registerCommand('vkcode.ai.showOutput', () => output.show(true));
+
+	const toggleThinking = vscode.commands.registerCommand('vkcode.ai.toggleThinking', async () => {
+		const config = vscode.workspace.getConfiguration('vkcode');
+		const next = !config.get<boolean>('ai.thinking', false);
+		await config.update('ai.thinking', next, vscode.ConfigurationTarget.Global);
+		void vscode.window.showInformationMessage(next
+			? vscode.l10n.t('vkcode AI reasoning is ON — the model will think before answering.')
+			: vscode.l10n.t('vkcode AI reasoning is OFF — the model answers directly.'));
+	});
+
 	const onChange = vscode.workspace.onDidChangeConfiguration(e => {
 		if (e.affectsConfiguration('vkcode.ai.enabled')) {
 			render();
@@ -41,5 +65,5 @@ export function registerAiStatus(context: vscode.ExtensionContext): void {
 	});
 
 	render();
-	context.subscriptions.push(item, toggle, onChange);
+	context.subscriptions.push(item, toggle, showOutput, toggleThinking, onChange, llama.onDidChangeStatus(() => render()));
 }

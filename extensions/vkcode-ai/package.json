@@ -11,7 +11,8 @@
 	"enabledApiProposals": [
 		"chatProvider",
 		"defaultChatParticipant",
-		"chatParticipantAdditions"
+		"chatParticipantAdditions",
+		"chatParticipantPrivate"
 	],
 	"categories": [
 		"AI"
@@ -48,6 +49,16 @@
 				"category": "vkcode"
 			},
 			{
+				"command": "vkcode.ai.showOutput",
+				"title": "Show AI Logs",
+				"category": "vkcode"
+			},
+			{
+				"command": "vkcode.ai.toggleThinking",
+				"title": "Toggle AI Thinking (Reasoning)",
+				"category": "vkcode"
+			},
+			{
 				"command": "vkcode.git.generateCommitMessage",
 				"title": "Generate Commit Message (Local AI)",
 				"category": "vkcode",
@@ -68,13 +79,22 @@
 					"description": "Absolute path to the local GGUF model file used by vkcode AI."
 				},
 				"vkcode.ai.contextSize": {
-					"type": "number",
-					"default": 4096,
-					"description": "Context window (in tokens) used when loading the local model."
+					"type": [
+						"string",
+						"number"
+					],
+					"default": "auto",
+					"markdownDescription": "Context window for the local model. `auto` picks the largest size that fits your available VRAM (recommended). Or set a number of tokens to cap it (lower it if you hit out-of-memory errors)."
+				},
+				"vkcode.ai.thinking": {
+					"type": "boolean",
+					"default": false,
+					"description": "Let the local model reason step-by-step before answering (Qwen3 thinking mode). Slower, and the reasoning is shown as a separate quote. When off, the model answers directly."
 				},
 				"vkcode.inlineSuggest.enabled": {
 					"type": "boolean",
 					"default": true,
+					"scope": "language-overridable",
 					"description": "Provide inline (ghost text) code suggestions from the local model. Also requires editor.inlineSuggest.enabled."
 				},
 				"vkcode.commitMessage.enabled": {
