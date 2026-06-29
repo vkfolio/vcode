@@ -14,6 +14,12 @@
   "contributes": {
     "themes": [
       {
+        "id": "Andromeda Zed",
+        "label": "Andromeda Zed",
+        "uiTheme": "vs-dark",
+        "path": "./themes/andromeda-zed-color-theme.json"
+      },
+      {
         "id": "Cupertino Night",
         "label": "Cupertino Night",
         "uiTheme": "vs-dark",
@@ -51,8 +57,8 @@
       }
     ],
     "configurationDefaults": {
-      "workbench.colorTheme": "Cupertino Night",
-      "workbench.preferredDarkColorTheme": "Cupertino Night",
+      "workbench.colorTheme": "Andromeda Zed",
+      "workbench.preferredDarkColorTheme": "Andromeda Zed",
       "workbench.preferredLightColorTheme": "Cupertino Day",
       "workbench.iconTheme": "vs-minimal",
       "workbench.activityBar.location": "hidden",
