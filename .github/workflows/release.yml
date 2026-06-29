@@ -1,0 +1,128 @@
+name: Release
+
+# Builds vkcode desktop installers for Windows and macOS and publishes them to a GitHub Release.
+#
+# Trigger by pushing a version tag, e.g.:
+#     git tag v1.0.0 && git push origin v1.0.0
+# or run it manually from the Actions tab (workflow_dispatch).
+#
+# Notes:
+#  - Builds are UNSIGNED. macOS users will need to right-click → Open the first time (Gatekeeper),
+#    and Windows may show SmartScreen. To sign/notarize, add the relevant secrets and steps.
+#  - VS Code is a large build (~30-60 min per platform) and memory-heavy; the gulp launcher already
+#    raises the V8 heap (--max-old-space-size=8192).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version/tag name (e.g. v1.0.0)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            platform: win32
+            arch: x64
+          - name: macos-arm64
+            os: macos-14
+            platform: darwin
+            arch: arm64
+          - name: macos-x64
+            os: macos-13
+            platform: darwin
+            arch: x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          # native modules are built against the bundled Electron version (see .npmrc)
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '0'
+
+      - name: Build app (${{ matrix.platform }}-${{ matrix.arch }})
+        run: npm run gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-min
+
+      # ---- Windows: Inno Setup installers (system + user) + portable zip ----
+      - name: Build Windows installers
+        if: matrix.platform == 'win32'
+        run: |
+          npm run gulp vscode-win32-${{ matrix.arch }}-system-setup
+          npm run gulp vscode-win32-${{ matrix.arch }}-user-setup
+
+      - name: Package Windows portable zip
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "../VSCode-win32-${{ matrix.arch }}/*" -DestinationPath "vkcode-win32-${{ matrix.arch }}.zip"
+
+      - name: Collect Windows artifacts
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item ".build/win32-${{ matrix.arch }}/system-setup/*.exe" "dist/vkcode-win32-${{ matrix.arch }}-system-setup.exe"
+          Copy-Item ".build/win32-${{ matrix.arch }}/user-setup/*.exe"   "dist/vkcode-win32-${{ matrix.arch }}-user-setup.exe"
+          Copy-Item "vkcode-win32-${{ matrix.arch }}.zip" "dist/"
+
+      # ---- macOS: zip the .app bundle (ditto preserves the bundle structure) ----
+      - name: Package macOS app
+        if: matrix.platform == 'darwin'
+        run: |
+          mkdir -p dist
+          APP_DIR="../VSCode-darwin-${{ matrix.arch }}"
+          APP_NAME="$(ls "$APP_DIR" | grep '.app$' | head -n1)"
+          echo "Zipping $APP_DIR/$APP_NAME"
+          ditto -c -k --keepParent "$APP_DIR/$APP_NAME" "dist/vkcode-darwin-${{ matrix.arch }}.zip"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vkcode-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: ${{ github.event.inputs.version || github.ref_name }}
+          generate_release_notes: true
+          files: artifacts/**/*

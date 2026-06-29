@@ -1,3 +1,102 @@
+# vkcode
+
+**vkcode** is a Zed-inspired fork of Visual Studio Code with a self-contained, **on-device AI** stack — inline chat, inline (ghost-text) suggestions, and commit-message generation — powered by a **local model**. No account, no sign-in, no cloud: everything runs on your machine via a bundled [`llama.cpp`](https://github.com/ggml-org/llama.cpp) server.
+
+## Download & install
+
+Grab an installer from the [**Releases**](../../releases) page:
+
+| Platform | File |
+| --- | --- |
+| Windows (installer) | `vkcode-win32-x64-user-setup.exe` (per-user) or `…-system-setup.exe` (all users) |
+| Windows (portable)  | `vkcode-win32-x64.zip` — unzip and run `vkcode.exe` |
+| macOS (Apple Silicon) | `vkcode-darwin-arm64.zip` |
+| macOS (Intel) | `vkcode-darwin-x64.zip` |
+
+> Builds are unsigned. On **macOS**, the first launch needs right-click → **Open** (Gatekeeper). On **Windows**, click **More info → Run anyway** if SmartScreen appears.
+
+## Set up the local AI
+
+The AI features need two things on disk: the **llama.cpp server** and at least one **GGUF model**. Both are plain files you point the editor at via settings — no internet required at runtime.
+
+### 1. The model server (engine)
+
+vkcode runs the model with `llama-server.exe` (from llama.cpp's prebuilt CUDA/Metal/CPU release).
+
+- Download the latest prebuilt for your OS from [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases) (e.g. `llama-<build>-bin-win-cuda-12.4-x64.zip`, plus the matching `cudart-*` zip on Windows/NVIDIA).
+- Unzip it to a folder, e.g. `D:\vkcode\tools\llamacpp\` (Windows) or `~/vkcode/tools/llamacpp/` (macOS).
+- Point vkcode at it in **Settings** → `vkcode.ai.serverPath` (e.g. `D:/osp/vkcode/tools/llamacpp/llama-server.exe`).
+
+### 2. Download a model (GGUF)
+
+Put any number of `*.gguf` files under a **`models`** folder; vkcode auto-discovers them (and any subfolders). Recommended models that fit an 8 GB GPU:
+
+| Model | Good for | Download |
+| --- | --- | --- |
+| **Qwen2.5-Coder-7B-Instruct** (Q4_K_M, ~4.7 GB) | Code: completion (FIM) + edits + chat | [bartowski/Qwen2.5-Coder-7B-Instruct-GGUF](https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF) |
+| **Gemma 4 / Qwen3** | General chat + step-by-step reasoning | search Hugging Face for a recent GGUF |
+
+Place them like this (the folder name `models` is what matters):
+
+```
+D:/osp/vkcode/models/
+├─ Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+├─ Qwen3.5-4B-Q4_K_M.gguf
+└─ gemma/
+   └─ Gemma4-E2B-q4_k_m.gguf
+```
+
+A fast way to download (multi-connection):
+
+```
+aria2c -x16 -s16 -d D:/osp/vkcode/models \
+  "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+```
+
+### 3. Point vkcode at a model
+
+Set the active model in **Settings** (use **forward slashes** — backslashes must be escaped in JSON):
+
+```jsonc
+{
+  "vkcode.ai.model": "d:/osp/vkcode/models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+  "vkcode.ai.serverPath": "d:/osp/vkcode/tools/llamacpp/llama-server.exe"
+}
+```
+
+Or just open the **AI** menu in the status bar and pick a model — it lists everything under your `models` folder and reloads on switch.
+
+### Using it
+
+- **Inline chat / edits** — `Ctrl/Cmd+I` in an editor; select code and ask "add error handling", "improve", etc.
+- **Inline suggestions** — ghost text as you type (best with a coder model that supports FIM, like Qwen2.5-Coder).
+- **Commit messages** — the ✨ button in the Source Control input.
+- **AI menu** (status bar) — toggle AI on/off, switch models, toggle reasoning, view backend/VRAM, see logs, or unload the model to free memory.
+
+### AI settings reference
+
+| Setting | Description |
+| --- | --- |
+| `vkcode.ai.enabled` | Master on/off switch |
+| `vkcode.ai.model` | Path to the active `.gguf` model |
+| `vkcode.ai.serverPath` | Path to `llama-server` executable |
+| `vkcode.ai.gpu` | `auto` (GPU) / `off` (CPU) |
+| `vkcode.ai.contextSize` | Context window; `auto` = 8192 (VRAM-safe) or a number |
+| `vkcode.ai.contextSizeByModel` | Per-model context, e.g. `{ "qwen": 8192, "gemma": 16384 }` |
+| `vkcode.ai.thinking` | Show step-by-step reasoning (reasoning models only) |
+
+## Build from source
+
+```bash
+git clone <this-repo> && cd vkcode
+npm ci
+./scripts/code.sh          # or scripts\code.bat on Windows
+```
+
+Packaged installers are produced by the [`Release`](.github/workflows/release.yml) GitHub Actions workflow (push a `v*` tag).
+
+---
+
 # Visual Studio Code - Open Source ("Code - OSS")
 [![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
 [![Bugs](https://img.shields.io/github/issues/microsoft/vscode/bug.svg)](https://github.com/microsoft/vscode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
