@@ -1,7 +1,7 @@
 {
 	"name": "vkcode-ai",
 	"displayName": "vkcode AI",
-	"description": "On-device AI for vkcode: inline chat, inline suggestions and commit messages powered by a local Qwen model. No account, no sign-in.",
+	"description": "On-device AI for vkcode: inline chat, inline suggestions and commit messages powered by a local model. No account, no sign-in.",
 	"version": "0.0.1",
 	"publisher": "vkcode",
 	"license": "MIT",
@@ -24,8 +24,8 @@
 	"contributes": {
 		"languageModelChatProviders": [
 			{
-				"vendor": "qwen",
-				"displayName": "Qwen (local)"
+				"vendor": "vkcode-local",
+				"displayName": "vkcode (local)"
 			}
 		],
 		"chatParticipants": [
@@ -33,7 +33,7 @@
 				"id": "vkcode.ai",
 				"name": "vkcode",
 				"fullName": "vkcode",
-				"description": "Local AI powered by Qwen",
+				"description": "Local on-device AI",
 				"isDefault": true,
 				"locations": [
 					"editor",
@@ -59,6 +59,21 @@
 				"category": "vkcode"
 			},
 			{
+				"command": "vkcode.ai.menu",
+				"title": "AI Options",
+				"category": "vkcode"
+			},
+			{
+				"command": "vkcode.ai.selectModel",
+				"title": "Select AI Model",
+				"category": "vkcode"
+			},
+			{
+				"command": "vkcode.ai.unload",
+				"title": "Unload AI Model (Free Memory)",
+				"category": "vkcode"
+			},
+			{
 				"command": "vkcode.git.generateCommitMessage",
 				"title": "Generate Commit Message (Local AI)",
 				"category": "vkcode",
@@ -75,8 +90,13 @@
 				},
 				"vkcode.ai.model": {
 					"type": "string",
-					"default": "d:/osp/vkcode/models/Qwen3.5-4B-Q4_K_M.gguf",
+					"default": "d:/osp/vkcode/models/gemma/Gemma4-E2B-q4_k_m.gguf",
 					"description": "Absolute path to the local GGUF model file used by vkcode AI."
+				},
+				"vkcode.ai.serverPath": {
+					"type": "string",
+					"default": "d:/osp/vkcode/tools/llamacpp/llama-server.exe",
+					"description": "Absolute path to the bundled llama.cpp server executable that runs the local model."
 				},
 				"vkcode.ai.contextSize": {
 					"type": [
@@ -86,10 +106,27 @@
 					"default": "auto",
 					"markdownDescription": "Context window for the local model. `auto` picks the largest size that fits your available VRAM (recommended). Or set a number of tokens to cap it (lower it if you hit out-of-memory errors)."
 				},
+				"vkcode.ai.gpu": {
+					"type": "string",
+					"enum": [
+						"auto",
+						"cuda",
+						"vulkan",
+						"off"
+					],
+					"enumDescriptions": [
+						"Automatically use the best available GPU (CUDA on NVIDIA, otherwise Vulkan).",
+						"Force the CUDA backend (NVIDIA GPUs).",
+						"Force the Vulkan backend.",
+						"Run on the CPU only (no GPU offload)."
+					],
+					"default": "auto",
+					"markdownDescription": "GPU backend for the local model. `auto` picks CUDA on NVIDIA GPUs and falls back to Vulkan. Use `off` to run on CPU. Changing this reloads the model."
+				},
 				"vkcode.ai.thinking": {
 					"type": "boolean",
 					"default": false,
-					"description": "Let the local model reason step-by-step before answering (Qwen3 thinking mode). Slower, and the reasoning is shown as a separate quote. When off, the model answers directly."
+					"description": "Let the local model reason step-by-step before answering. The reasoning streams as live progress and is logged, but is never inserted into your document. When off, a smaller reasoning budget is used so the model answers directly."
 				},
 				"vkcode.inlineSuggest.enabled": {
 					"type": "boolean",
@@ -108,9 +145,6 @@
 	"scripts": {
 		"compile": "gulp compile-extension:vkcode-ai",
 		"watch": "gulp watch-extension:vkcode-ai"
-	},
-	"dependencies": {
-		"node-llama-cpp": "^3.0.0"
 	},
 	"devDependencies": {
 		"@types/node": "22.x"

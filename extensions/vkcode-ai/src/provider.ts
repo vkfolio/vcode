@@ -6,16 +6,16 @@
 import * as vscode from 'vscode';
 import { IChatTurn, LlamaService } from './llama';
 
-export const QWEN_VENDOR = 'qwen';
-const MODEL_ID = 'qwen-local';
+export const LOCAL_VENDOR = 'vkcode-local';
+const MODEL_ID = 'vkcode-local';
 
 /**
- * Exposes the local Qwen model through the language-model API so that inline chat, the chat
- * participant and any other consumer can talk to it via `vscode.lm`. The model advertises
- * `toolCalling: true` because inline chat only considers tool-capable models, even though inline
- * chat sessions themselves do not invoke tools.
+ * Exposes the local model through the language-model API so that inline chat, the chat participant
+ * and any other consumer can talk to it via `vscode.lm`. The model advertises `toolCalling: true`
+ * because inline chat only considers tool-capable models, even though inline chat sessions
+ * themselves do not invoke tools.
  */
-export class QwenChatProvider implements vscode.LanguageModelChatProvider {
+export class LocalChatProvider implements vscode.LanguageModelChatProvider {
 
 	constructor(private readonly llama: LlamaService) { }
 
@@ -25,9 +25,9 @@ export class QwenChatProvider implements vscode.LanguageModelChatProvider {
 		const contextSize = typeof configured === 'number' && configured > 0 ? configured : 8192;
 		return [{
 			id: MODEL_ID,
-			name: 'Qwen (local)',
-			family: 'qwen',
-			version: '3.5-4b',
+			name: 'vkcode (local)',
+			family: 'local',
+			version: '1',
 			maxInputTokens: Math.max(1024, contextSize - 1024),
 			maxOutputTokens: 1024,
 			capabilities: { toolCalling: true, imageInput: false },
@@ -42,20 +42,17 @@ export class QwenChatProvider implements vscode.LanguageModelChatProvider {
 		const controller = new AbortController();
 		token.onCancellationRequested(() => controller.abort());
 
-		// The engine separates the reasoning (a `<think>` segment) from the answer for us. We don't
-		// stream raw chunks because the reasoning has to be rendered as a distinct quote block.
-		const { thinking, answer } = await this.llama.chat(turns, {
+		// The engine separates the reasoning (a `<think>` segment) from the answer and logs the reasoning
+		// to the "vkcode AI" output. Only the answer is returned to the chat surface — the reasoning is
+		// never inserted into the document or shown in the response.
+		const { answer } = await this.llama.chat(turns, {
 			maxTokens: thinkingOn ? 3072 : 1024,
 			temperature: 0.2,
 			signal: controller.signal,
 			think: thinkingOn
 		});
 
-		if (thinkingOn && thinking) {
-			const quoted = thinking.split('\n').map(line => `> ${line}`).join('\n');
-			progress.report(new vscode.LanguageModelTextPart(`> 🧠 **Reasoning**\n${quoted}\n\n`));
-		}
-		progress.report(new vscode.LanguageModelTextPart(answer || thinking || vscode.l10n.t('_(no response)_')));
+		progress.report(new vscode.LanguageModelTextPart(answer || vscode.l10n.t('_(no response)_')));
 	}
 
 	async provideTokenCount(_model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatRequestMessage, _token: vscode.CancellationToken): Promise<number> {

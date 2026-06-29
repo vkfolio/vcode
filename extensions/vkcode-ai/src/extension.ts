@@ -9,7 +9,7 @@ import { registerChatParticipant } from './participant';
 import { registerCommitMessage } from './commitMessage';
 import { registerInlineCompletions } from './inlineCompletions';
 import { LlamaService } from './llama';
-import { QWEN_VENDOR, QwenChatProvider } from './provider';
+import { LOCAL_VENDOR, LocalChatProvider } from './provider';
 
 export function activate(context: vscode.ExtensionContext): void {
 	const config = () => vscode.workspace.getConfiguration('vkcode');
@@ -22,20 +22,31 @@ export function activate(context: vscode.ExtensionContext): void {
 			const value = config().get<string | number>('ai.contextSize', 'auto');
 			return typeof value === 'number' && value > 0 ? value : 'auto';
 		},
+		() => {
+			const value = config().get<string>('ai.gpu', 'auto');
+			return value === 'cuda' || value === 'vulkan' || value === 'off' ? value : 'auto';
+		},
+		() => config().get<string>('ai.serverPath', ''),
 		output
 	);
+	// Stop the model server when the extension is unloaded.
+	context.subscriptions.push({ dispose: () => void llama.unload() });
 
-	// Reload the model if the user points at a different GGUF file.
+	// Reload the model if the user points at a different GGUF file, context size, GPU backend or server,
+	// and free memory entirely when the master switch is turned off.
 	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-		if (e.affectsConfiguration('vkcode.ai.model') || e.affectsConfiguration('vkcode.ai.contextSize')) {
+		if (e.affectsConfiguration('vkcode.ai.model') || e.affectsConfiguration('vkcode.ai.contextSize') || e.affectsConfiguration('vkcode.ai.gpu') || e.affectsConfiguration('vkcode.ai.serverPath')) {
 			llama.reset();
+		}
+		if (e.affectsConfiguration('vkcode.ai.enabled') && !config().get<boolean>('ai.enabled', true)) {
+			void llama.unload();
 		}
 	}));
 
-	context.subscriptions.push(vscode.lm.registerLanguageModelChatProvider(QWEN_VENDOR, new QwenChatProvider(llama)));
+	context.subscriptions.push(vscode.lm.registerLanguageModelChatProvider(LOCAL_VENDOR, new LocalChatProvider(llama)));
 
 	registerAiStatus(context, llama, output);
-	registerChatParticipant(context, output);
+	registerChatParticipant(context, llama, output);
 	registerInlineCompletions(context, llama);
 	registerCommitMessage(context, llama);
 }
