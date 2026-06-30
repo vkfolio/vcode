@@ -88,7 +88,23 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		run('sudo', ['chown', '-R', `${userinfo.uid}:${userinfo.gid}`, `${path.resolve(root, dir)}`], syncOpts);
 	} else {
 		log(dir, 'Installing dependencies...');
-		const output = await spawnAsync(npm, command.split(' '), finalOpts);
+		// Retry transient failures. Running many npm installs in parallel on Windows CI occasionally
+		// crashes a child with STATUS_STACK_BUFFER_OVERRUN (exit 3221226505 / 0xC0000409); a plain
+		// re-run reliably succeeds, so don't let one flaky crash fail the whole build.
+		let output = '';
+		const maxAttempts = 3;
+		for (let attempt = 1; ; attempt++) {
+			try {
+				output = await spawnAsync(npm, command.split(' '), finalOpts);
+				break;
+			} catch (err) {
+				if (attempt >= maxAttempts) {
+					throw err;
+				}
+				log(dir, `Install attempt ${attempt} failed (${(err as Error).message.split('\n')[0]}); retrying...`);
+				await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+			}
+		}
 		if (output.trim()) {
 			for (const line of output.trim().split('\n')) {
 				log(dir, line);
