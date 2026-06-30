@@ -8,6 +8,8 @@ import { registerAiStatus } from './aiStatus';
 import { registerChatParticipant } from './participant';
 import { registerCommitMessage } from './commitMessage';
 import { registerInlineCompletions } from './inlineCompletions';
+import { registerNotebookBeautify } from './notebookBeautify';
+import { registerNotebookPdf } from './notebookPdf';
 import { LlamaService } from './llama';
 import { LOCAL_VENDOR, LocalChatProvider } from './provider';
 
@@ -58,6 +60,8 @@ export function activate(context: vscode.ExtensionContext): void {
 	registerChatParticipant(context, llama, output);
 	registerInlineCompletions(context, llama);
 	registerCommitMessage(context, llama);
+	registerNotebookBeautify(context, llama);
+	registerNotebookPdf(context);
 }
 
 export function deactivate(): void {

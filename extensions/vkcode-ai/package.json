@@ -78,8 +78,61 @@
 				"title": "Generate Commit Message (Local AI)",
 				"category": "vkcode",
 				"icon": "$(sparkle)"
+			},
+			{
+				"command": "vkcode.notebook.beautify",
+				"title": "Beautify Notebook",
+				"category": "vkcode",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "vkcode.notebook.beautifyCell",
+				"title": "Beautify Cell",
+				"category": "vkcode",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "vkcode.notebook.exportPdf",
+				"title": "Export Notebook to PDF",
+				"category": "vkcode",
+				"icon": "$(file-pdf)"
 			}
 		],
+		"menus": {
+			"notebook/toolbar": [
+				{
+					"command": "vkcode.notebook.beautify",
+					"group": "navigation/vkcode@1",
+					"when": "notebookType == jupyter-notebook"
+				},
+				{
+					"command": "vkcode.notebook.exportPdf",
+					"group": "navigation/vkcode@2",
+					"when": "notebookType == jupyter-notebook"
+				}
+			],
+			"notebook/cell/title": [
+				{
+					"command": "vkcode.notebook.beautifyCell",
+					"group": "1_vkcode@1",
+					"when": "notebookType == jupyter-notebook"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "vkcode.notebook.beautify",
+					"when": "notebookType == jupyter-notebook"
+				},
+				{
+					"command": "vkcode.notebook.beautifyCell",
+					"when": "notebookType == jupyter-notebook"
+				},
+				{
+					"command": "vkcode.notebook.exportPdf",
+					"when": "notebookType == jupyter-notebook"
+				}
+			]
+		},
 		"configuration": {
 			"title": "vkcode AI",
 			"properties": {
@@ -151,6 +204,11 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Show the local 'Generate Commit Message' action in the Source Control input."
+				},
+				"vkcode.notebook.pdf.browserPath": {
+					"type": "string",
+					"default": "",
+					"description": "Absolute path to an Edge or Chrome executable used to print notebooks to PDF. When empty, vkcode auto-detects an installed Edge or Chrome."
 				}
 			}
 		}
@@ -159,7 +217,11 @@
 		"compile": "gulp compile-extension:vkcode-ai",
 		"watch": "gulp watch-extension:vkcode-ai"
 	},
+	"dependencies": {
+		"markdown-it": "^12.3.2"
+	},
 	"devDependencies": {
+		"@types/markdown-it": "12.2.3",
 		"@types/node": "22.x"
 	}
 }
