@@ -161,9 +161,9 @@ function gb(bytes: number): string {
 
 /**
  * Finds `*.gguf` models (excluding `mmproj*` vision projectors) under the models root, scanned
- * recursively. The root is the nearest ancestor folder named "models" (so models in sibling
- * subfolders like `models/gemma/` are all found), falling back to the configured model's folder.
- * Always includes the configured model itself.
+ * recursively. The root is the `vkcode.ai.modelsDir` setting when set, otherwise the nearest
+ * ancestor folder named "models" (so models in sibling subfolders like `models/gemma/` are all
+ * found), falling back to the configured model's folder. Always includes the configured model.
  */
 function discoverModels(configured: string): string[] {
 	// Normalize to forward slashes so the result is valid in settings.json and works regardless of
@@ -173,7 +173,9 @@ function discoverModels(configured: string): string[] {
 	if (norm && fs.existsSync(norm)) {
 		found.add(norm);
 	}
-	const root = modelsRoot(norm);
+	// An explicit models directory wins; otherwise derive a root from the configured model path.
+	const modelsDir = vscode.workspace.getConfiguration('vkcode').get<string>('ai.modelsDir', '').replace(/\\/g, '/');
+	const root = (modelsDir && fs.existsSync(modelsDir)) ? modelsDir : modelsRoot(norm);
 	const scan = (dir: string, depth: number) => {
 		let entries: fs.Dirent[];
 		try {

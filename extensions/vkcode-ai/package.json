@@ -93,6 +93,11 @@
 					"default": "d:/osp/vkcode/models/gemma/Gemma4-E2B-q4_k_m.gguf",
 					"description": "Absolute path to the local GGUF model file used by vkcode AI."
 				},
+				"vkcode.ai.modelsDir": {
+					"type": "string",
+					"default": "d:/osp/vkcode/models",
+					"description": "Folder scanned (recursively) for .gguf models in the model picker. When empty, the folder is derived from the configured model path."
+				},
 				"vkcode.ai.serverPath": {
 					"type": "string",
 					"default": "d:/osp/vkcode/tools/llamacpp/llama-server.exe",
